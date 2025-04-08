@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export const Footer = () => {
   return (
     <footer className="flex mt-12 max-w-screen-xl mx-auto items-center justify-between py-4">
