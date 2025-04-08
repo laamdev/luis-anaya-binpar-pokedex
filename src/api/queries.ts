@@ -228,7 +228,7 @@ export async function getPokemons({
           (pokemon): pokemon is Pokemon => pokemon !== null
         );
 
-        let sortedPokemonList = [...pokemonList];
+        const sortedPokemonList = [...pokemonList];
         if (sort === "name-desc") {
           sortedPokemonList.sort((a, b) => b.name.localeCompare(a.name));
         } else if (sort === "name-asc") {
@@ -258,7 +258,7 @@ export async function getPokemons({
         }
         const typeData = await typeResponse.json();
         const typePokemonNames = typeData.pokemon.map(
-          (p: any) => p.pokemon.name
+          (p: { pokemon: { name: string } }) => p.pokemon.name
         );
 
         const generationResponse = await fetch(
@@ -272,7 +272,7 @@ export async function getPokemons({
         }
         const generationData = await generationResponse.json();
         const generationPokemonNames = generationData.pokemon_species.map(
-          (p: any) => p.name
+          (p: { name: string }) => p.name
         );
 
         const filteredPokemonNames = typePokemonNames.filter((name: string) =>
@@ -350,7 +350,7 @@ export async function getPokemons({
           (pokemon): pokemon is Pokemon => pokemon !== null
         );
 
-        let sortedPokemonList = [...pokemonList];
+        const sortedPokemonList = [...pokemonList];
         if (sort === "name-desc") {
           sortedPokemonList.sort((a, b) => b.name.localeCompare(a.name));
         } else if (sort === "name-asc") {
@@ -379,7 +379,9 @@ export async function getPokemons({
         }
 
         const data = await response.json();
-        const pokemonNames = data.pokemon_species.map((p: any) => p.name);
+        const pokemonNames = data.pokemon_species.map(
+          (p: { name: string }) => p.name
+        );
         const total = pokemonNames.length;
 
         const paginatedPokemonNames = pokemonNames.slice(
@@ -445,7 +447,7 @@ export async function getPokemons({
           (pokemon): pokemon is Pokemon => pokemon !== null
         );
 
-        let sortedPokemonList = [...pokemonList];
+        const sortedPokemonList = [...pokemonList];
         if (sort === "name-desc") {
           sortedPokemonList.sort((a, b) => b.name.localeCompare(a.name));
         } else if (sort === "name-asc") {
@@ -472,7 +474,9 @@ export async function getPokemons({
         }
 
         const data = await response.json();
-        const pokemonNames = data.pokemon.map((p: any) => p.pokemon.name);
+        const pokemonNames = data.pokemon.map(
+          (p: { pokemon: { name: string } }) => p.pokemon.name
+        );
         const total = pokemonNames.length;
 
         const paginatedPokemonNames = pokemonNames.slice(
@@ -539,13 +543,12 @@ export async function getPokemons({
           (pokemon): pokemon is Pokemon => pokemon !== null
         );
 
-        let sortedPokemonList = [...pokemonList];
+        const sortedPokemonList = [...pokemonList];
         if (sort === "name-desc") {
           sortedPokemonList.sort((a, b) => b.name.localeCompare(a.name));
         } else if (sort === "name-asc") {
           sortedPokemonList.sort((a, b) => a.name.localeCompare(b.name));
         } else {
-          // Default sort by id
           sortedPokemonList.sort((a, b) => a.id - b.id);
         }
 
@@ -626,7 +629,7 @@ export async function getPokemons({
           (pokemon): pokemon is Pokemon => pokemon !== null
         );
 
-        let sortedPokemonList = [...pokemonList];
+        const sortedPokemonList = [...pokemonList];
         if (sort === "name-desc") {
           sortedPokemonList.sort((a, b) => b.name.localeCompare(a.name));
         } else if (sort === "name-asc") {

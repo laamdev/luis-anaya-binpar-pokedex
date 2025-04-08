@@ -8,10 +8,19 @@ import { MobileFilterSheet } from "@/components/pokemon/mobile-filter-sheet";
 
 import { getGenerations, getPokemons } from "@/api/queries";
 
+interface SearchParams {
+  generation?: string;
+  type?: string;
+  sort?: string;
+  page?: string;
+  limit?: string;
+  search?: string;
+}
+
 export default async function Home({
   searchParams,
 }: {
-  searchParams: { [key: string]: string | string[] | undefined };
+  searchParams: Promise<SearchParams>;
 }) {
   const {
     generation,
