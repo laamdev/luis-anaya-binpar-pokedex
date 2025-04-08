@@ -5,6 +5,7 @@ import { ListPagination } from "@/components/pokemon/list-pagination";
 import { SearchInput } from "@/components/pokemon/search-input";
 import { SortFilters } from "@/components/pokemon/sort-filters";
 import { MobileFilterSheet } from "@/components/pokemon/mobile-filter-sheet";
+import { EmptyState } from "@/components/pokemon/empty-state";
 
 import { getGenerations, getPokemons } from "@/api/queries";
 
@@ -82,21 +83,27 @@ export default async function Home({
           </div>
         </div>
       </div>
-      <ul className="grid mt-12 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 auto-rows-fr">
-        {pokemonsResponse.data.map((pokemon) => (
-          <li key={pokemon.name} className="h-full">
-            <PokemonCard pokemon={pokemon} />
-          </li>
-        ))}
-      </ul>
+      {pokemonsResponse.data.length === 0 ? (
+        <EmptyState />
+      ) : (
+        <ul className="grid mt-12 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 auto-rows-fr">
+          {pokemonsResponse.data.map((pokemon) => (
+            <li key={pokemon.name} className="h-full">
+              <PokemonCard pokemon={pokemon} />
+            </li>
+          ))}
+        </ul>
+      )}
 
-      <div className="mt-12">
-        <ListPagination
-          currentPage={page}
-          totalPages={totalPages}
-          limit={limit}
-        />
-      </div>
+      {pokemonsResponse.data.length > 0 && (
+        <div className="mt-12">
+          <ListPagination
+            currentPage={page}
+            totalPages={totalPages}
+            limit={limit}
+          />
+        </div>
+      )}
     </section>
   );
 }
