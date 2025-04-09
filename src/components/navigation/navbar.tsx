@@ -13,7 +13,7 @@ export const Navbar = () => {
   const isHomePage = pathname === "/";
 
   return (
-    <header className="flex mb-12 max-w-screen-xl mx-auto items-center justify-between py-4">
+    <header className="flex mb-12 max-w-screen-xl mx-auto items-center justify-between h-16">
       {!isHomePage && (
         <button
           onClick={() => router.back()}

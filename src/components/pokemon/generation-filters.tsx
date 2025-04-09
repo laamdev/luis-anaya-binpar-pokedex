@@ -37,7 +37,7 @@ export const GenerationFilters = () => {
 
   return (
     <Select value={currentFilter} onValueChange={handleFilter}>
-      <SelectTrigger className="w-[180px]">
+      <SelectTrigger className="w-full">
         <SelectValue placeholder="Generation" />
       </SelectTrigger>
       <SelectContent>

@@ -140,17 +140,16 @@ export default async function PokemonPage({ params }: PokemonPageProps) {
                     className="group flex flex-col items-center cursor-default"
                   >
                     <div
-                      className="relative size-24 bg-black rounded-xl"
                       style={{
                         border: `3px solid ${pokemon.colorCode}`,
-                        borderRadius: "0.5rem",
                       }}
+                      className="relative size-24 bg-black rounded-xl overflow-hidden"
                     >
                       <Image
                         src={evolution.image}
                         alt={evolution.name}
                         fill
-                        className="object-cover rounded-xl p-4 object-center"
+                        className="object-cover p-4 object-center"
                       />
                     </div>
                     <span className="capitalize text-sm font-mono mt-2 text-primary">
@@ -163,12 +162,12 @@ export default async function PokemonPage({ params }: PokemonPageProps) {
                     key={evolution.name}
                     className="group flex flex-col items-center"
                   >
-                    <div className="relative size-24 bg-black">
+                    <div className="relative size-24 bg-black rounded-xl overflow-hidden">
                       <Image
                         src={evolution.image}
                         alt={evolution.name}
                         fill
-                        className="object-cover hover:scale-105 transition-all duration-300 rounded-xl p-4 object-center"
+                        className="object-cover hover:scale-105 transition-all duration-300 p-4 object-center"
                       />
                     </div>
                     <span className="capitalize text-sm font-mono mt-2 group-hover:text-primary transition-colors">

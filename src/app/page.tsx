@@ -31,36 +31,38 @@ export default async function Home() {
           BinPar Pokédex
         </h1>
       </div>
-      <div className="flex sm:flex-row flex-col justify-between gap-4 mt-24">
-        <div>
+
+      <div className="flex items-center lg:flex-row flex-col justify-between gap-12 mt-24 w-full">
+        <div className="w-full">
           <p className="text-xs font-mono uppercase tracking-wider opacity-75">
             Search by Name
           </p>
-          <div className="flex gap-4 sm:flex-row flex-col mt-2">
+          <div className="flex gap-4 sm:flex-row flex-col mt-2 w-full">
             <Suspense
               fallback={
-                <div className="w-full sm:w-96 h-10 bg-muted animate-pulse rounded-md" />
+                <div className="w-full h-10 bg-muted animate-pulse rounded-md" />
               }
             >
               <SearchBar />
             </Suspense>
           </div>
         </div>
-        <div>
+
+        <div className="w-full">
           <p className="text-xs font-mono uppercase tracking-wider opacity-75">
             Filter by
           </p>
-          <div className="flex gap-4 flex-row mt-2">
+          <div className="flex gap-4 w-full mt-2">
             <Suspense
               fallback={
-                <div className="w-[180px] h-10 bg-muted animate-pulse rounded-md" />
+                <div className="w-full h-10 bg-muted animate-pulse rounded-md" />
               }
             >
               <TypeFilters />
             </Suspense>
             <Suspense
               fallback={
-                <div className="w-[180px] h-10 bg-muted animate-pulse rounded-md" />
+                <div className="w-full h-10 bg-muted animate-pulse rounded-md" />
               }
             >
               <GenerationFilters />

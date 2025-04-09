@@ -38,7 +38,7 @@ export const TypeFilters = () => {
 
   return (
     <Select value={currentFilter} onValueChange={handleFilter}>
-      <SelectTrigger className="w-[180px]">
+      <SelectTrigger className="w-full">
         <SelectValue placeholder="Type" />
       </SelectTrigger>
       <SelectContent>

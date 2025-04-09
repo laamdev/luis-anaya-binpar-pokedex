@@ -109,7 +109,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="overflow-x-hidden  px-4 sm:px-0">
+    <html lang="en" className="px-4 xl:px-0">
       <body
         className={cn(
           fraktionMono.variable,
