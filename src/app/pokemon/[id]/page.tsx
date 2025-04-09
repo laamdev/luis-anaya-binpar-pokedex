@@ -13,6 +13,18 @@ interface PokemonPageProps {
   params: Promise<{ id: string }>;
 }
 
+export const generateMetadata = async ({ params }: PokemonPageProps) => {
+  const { id } = await params;
+  const pokemon = await getPokemonById(id);
+  const capitalizedName =
+    pokemon.name.charAt(0).toUpperCase() + pokemon.name.slice(1);
+
+  return {
+    title: `${capitalizedName} - Pokédex`,
+    description: `Explore the details of ${capitalizedName} in the Pokédex.`,
+  };
+};
+
 export default async function PokemonPage({ params }: PokemonPageProps) {
   const { id } = await params;
 
