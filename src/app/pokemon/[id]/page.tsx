@@ -15,6 +15,7 @@ interface PokemonPageProps {
 
 export default async function PokemonPage({ params }: PokemonPageProps) {
   const { id } = await params;
+
   const pokemon = await getPokemonById(id);
 
   return (

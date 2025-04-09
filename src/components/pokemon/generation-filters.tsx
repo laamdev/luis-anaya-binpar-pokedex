@@ -1,6 +1,7 @@
 "use client";
 
 import { useSearchParams, usePathname, useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 
 import {
   Select,
@@ -10,16 +11,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import { Generation } from "@/api/queries";
+import { generations } from "@/lib/data/generations";
 
-export const GenerationFilters = ({
-  generations,
-}: {
-  generations: Generation[];
-}) => {
+export const GenerationFilters = () => {
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const { replace } = useRouter();
+  const queryClient = useQueryClient();
 
   const currentFilter = searchParams.get("generation") || "all";
 
@@ -32,6 +30,9 @@ export const GenerationFilters = ({
     }
     params.delete("page");
     replace(`${pathname}?${params.toString()}`);
+
+    // Invalidate the pokemons query to trigger a refetch
+    queryClient.invalidateQueries({ queryKey: ["pokemons"] });
   };
 
   return (
@@ -43,14 +44,13 @@ export const GenerationFilters = ({
         <SelectItem value="all">
           <span className="uppercase">All Generations</span>
         </SelectItem>
-        {generations.map((generation) => {
-          const generationNumber = generation.name.replace("generation-", "");
-          return (
-            <SelectItem key={generation.name} value={generation.name}>
-              <span className="uppercase">{generationNumber}</span>
-            </SelectItem>
-          );
-        })}
+        {generations.map((generation) => (
+          <SelectItem key={generation.value} value={generation.value}>
+            <span className="uppercase">
+              {generation.name.replace("Generation ", "")}
+            </span>
+          </SelectItem>
+        ))}
       </SelectContent>
     </Select>
   );

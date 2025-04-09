@@ -9,9 +9,10 @@ import {
 } from "@/components/ui/tooltip";
 
 import { types } from "@/lib/data/types";
-import { Pokemon } from "@/api/queries";
+import { Pokemon, PokemonType } from "@/api/queries";
+import { formatGenerationName } from "@/lib/utils";
 
-export const PokemonCard = async ({ pokemon }: { pokemon: Pokemon }) => {
+export const PokemonCard = ({ pokemon }: { pokemon: Pokemon }) => {
   return (
     <Link
       href={`/pokemon/${pokemon.name}`}
@@ -37,14 +38,16 @@ export const PokemonCard = async ({ pokemon }: { pokemon: Pokemon }) => {
           />
         </div>
         <div className="flex flex-col gap-2 items-center text-center w-full mt-auto">
-          <div className="flex flex-col gap-1 items-center text-center">
+          <div className="flex flex-col gap-1 items-center text-center w-full">
             <p className="text-xs font-mono tracking-wider opacity-75">
               {formatGenerationName(pokemon.generation)}
             </p>
-            <h2 className="text-lg font-bold uppercase">{pokemon.name}</h2>
+            <h2 className="text-lg font-bold uppercase truncate w-full max-w-[200px]">
+              {pokemon.name}
+            </h2>
           </div>
           <div className="flex flex-wrap gap-2 justify-center">
-            {pokemon.types.map((type) => {
+            {pokemon.types.map((type: PokemonType) => {
               const typeIcon = types.find(
                 (t) => t.name === type.type.name
               )?.icon;
@@ -72,23 +75,4 @@ export const PokemonCard = async ({ pokemon }: { pokemon: Pokemon }) => {
       </div>
     </Link>
   );
-};
-
-const formatGenerationName = (generation: string): string => {
-  const genNumber = generation.replace("generation-", "");
-
-  const romanNumerals: { [key: string]: string } = {
-    "1": "I",
-    "2": "II",
-    "3": "III",
-    "4": "IV",
-    "5": "V",
-    "6": "VI",
-    "7": "VII",
-    "8": "VIII",
-    "9": "IX",
-  };
-
-  const romanNumeral = romanNumerals[genNumber] || genNumber;
-  return `Generation ${romanNumeral.toUpperCase()}`;
 };

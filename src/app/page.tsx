@@ -1,109 +1,87 @@
+import { Suspense } from "react";
+import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
+
 import { GenerationFilters } from "@/components/pokemon/generation-filters";
-import { PokemonCard } from "@/components/pokemon/pokemon-card";
 import { TypeFilters } from "@/components/pokemon/type-filters";
-import { ListPagination } from "@/components/pokemon/list-pagination";
-import { SearchInput } from "@/components/pokemon/search-input";
-import { SortFilters } from "@/components/pokemon/sort-filters";
-import { MobileFilterSheet } from "@/components/pokemon/mobile-filter-sheet";
-import { EmptyState } from "@/components/pokemon/empty-state";
+import { SearchBar } from "@/components/pokemon/search-bar";
+import { GridList } from "@/components/pokemon/grid-list";
 
-import { getGenerations, getPokemons } from "@/api/queries";
+import { getQueryClient } from "@/lib/get-query-client";
+import { getPokemons } from "@/api/queries";
 
-interface SearchParams {
-  generation?: string;
-  type?: string;
-  sort?: string;
-  page?: string;
-  limit?: string;
-  search?: string;
-}
+export default async function Home() {
+  const queryClient = getQueryClient();
 
-export default async function Home({
-  searchParams,
-}: {
-  searchParams: Promise<SearchParams>;
-}) {
-  const {
-    generation,
-    type,
-    sort,
-    page: pageParam,
-    limit: limitParam,
-    search,
-  } = await searchParams;
-
-  const page = pageParam ? parseInt(pageParam as string) : 1;
-  const limit = limitParam ? parseInt(limitParam as string) : 20;
-  const offset = (page - 1) * limit;
-
-  const pokemonsResponse = await getPokemons({
-    generation: generation as string | undefined,
-    type: type as string | undefined,
-    limit,
-    offset,
-    sort: sort as string | undefined,
-    search: search as string | undefined,
+  await queryClient.prefetchInfiniteQuery({
+    queryKey: ["pokemons", { type: "all", generation: "all", search: "" }],
+    queryFn: ({ pageParam }) =>
+      getPokemons({
+        pageParam,
+        filters: { type: "all", generation: "all", search: "" },
+      }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
+    pages: 1,
   });
-
-  const generations = await getGenerations();
-
-  const totalPages = Math.ceil(pokemonsResponse.total / limit);
 
   return (
     <section>
       <div className="flex flex-col items-center gap-4">
-        <h1 className="text-2xl text-center font-bold">
-          Search for your favorite Pokémon!
+        <h1 className="text-5xl uppercase text-center font-bold">
+          BinPar Pokédex
         </h1>
-        <div className="w-full max-w-3xl">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex-1">
-              <SearchInput />
-            </div>
-            <MobileFilterSheet generations={generations} />
+      </div>
+      <div className="flex sm:flex-row flex-col justify-between gap-4 mt-24">
+        <div>
+          <p className="text-xs font-mono uppercase tracking-wider opacity-75">
+            Search by Name
+          </p>
+          <div className="flex gap-4 sm:flex-row flex-col mt-2">
+            <Suspense
+              fallback={
+                <div className="w-full sm:w-96 h-10 bg-muted animate-pulse rounded-md" />
+              }
+            >
+              <SearchBar />
+            </Suspense>
           </div>
         </div>
-      </div>
-      <div className="hidden md:flex mt-12 justify-between items-center flex-col sm:flex-row gap-4">
         <div>
           <p className="text-xs font-mono uppercase tracking-wider opacity-75">
             Filter by
           </p>
-          <div className="flex gap-4 sm:flex-row flex-col mt-2">
-            <TypeFilters />
-            <GenerationFilters generations={generations} />
-          </div>
-        </div>
-        <div>
-          <p className="text-xs font-mono uppercase tracking-wider opacity-75">
-            Sort by
-          </p>
-          <div className="flex gap-4 mt-2">
-            <SortFilters />
+          <div className="flex gap-4 flex-row mt-2">
+            <Suspense
+              fallback={
+                <div className="w-[180px] h-10 bg-muted animate-pulse rounded-md" />
+              }
+            >
+              <TypeFilters />
+            </Suspense>
+            <Suspense
+              fallback={
+                <div className="w-[180px] h-10 bg-muted animate-pulse rounded-md" />
+              }
+            >
+              <GenerationFilters />
+            </Suspense>
           </div>
         </div>
       </div>
-      {pokemonsResponse.data.length === 0 ? (
-        <EmptyState />
-      ) : (
-        <ul className="grid mt-12 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 auto-rows-fr">
-          {pokemonsResponse.data.map((pokemon) => (
-            <li key={pokemon.name} className="h-full">
-              <PokemonCard pokemon={pokemon} />
-            </li>
-          ))}
-        </ul>
-      )}
 
-      {pokemonsResponse.data.length > 0 && (
+      <HydrationBoundary state={dehydrate(queryClient)}>
         <div className="mt-12">
-          <ListPagination
-            currentPage={page}
-            totalPages={totalPages}
-            limit={limit}
-          />
+          <Suspense
+            fallback={
+              <div className="min-h-[400px] flex items-center justify-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            }
+          >
+            <GridList />
+          </Suspense>
         </div>
-      )}
+      </HydrationBoundary>
     </section>
   );
 }

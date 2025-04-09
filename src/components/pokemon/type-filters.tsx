@@ -1,6 +1,7 @@
 "use client";
 
 import { useSearchParams, usePathname, useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 
 import {
   Select,
@@ -16,6 +17,7 @@ export const TypeFilters = () => {
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const { replace } = useRouter();
+  const queryClient = useQueryClient();
 
   const currentFilter = searchParams.get("type") || "all";
 
@@ -26,8 +28,12 @@ export const TypeFilters = () => {
     } else {
       params.set("type", type);
     }
+    // Reset pagination when filter changes to ensure consistent results
     params.delete("page");
     replace(`${pathname}?${params.toString()}`);
+
+    // Invalidate the pokemons query to trigger a refetch with new filters
+    queryClient.invalidateQueries({ queryKey: ["pokemons"] });
   };
 
   return (

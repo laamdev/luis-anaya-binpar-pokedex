@@ -1,5 +1,7 @@
 import { pokemonColors } from "@/lib/data/colors";
 
+// INTERFACES
+
 export interface PokemonType {
   slot: number;
   type: {
@@ -28,6 +30,17 @@ interface EvolutionChain {
   evolves_to: EvolutionChain[];
 }
 
+export interface PokemonListItem {
+  name: string;
+  image: string;
+}
+
+export interface PokemonListResponse {
+  data: Pokemon[];
+  nextCursor: number | null;
+  total: number;
+}
+
 export interface Pokemon {
   id: number;
   name: string;
@@ -44,16 +57,286 @@ export interface Pokemon {
   height: number;
 }
 
-export interface PokemonListItem {
-  name: string;
-  url: string;
+export interface PokemonResponse {
+  data: Pokemon[];
+  total: number;
 }
 
-export interface PokemonListResponse {
-  count: number;
-  next: string | null;
-  previous: string | null;
-  results: PokemonListItem[];
+// HELPERS
+
+export const getRelatedPokemonFromEvolutionChain = async (
+  chain: EvolutionChain
+): Promise<Pokemon[]> => {
+  const relatedPokemon: Pokemon[] = [];
+
+  // Helper function to process evolution chain
+  const processEvolution = async (evolution: EvolutionChain) => {
+    const pokemonResponse = await fetch(
+      `https://pokeapi.co/api/v2/pokemon/${evolution.species.name}`
+    );
+    const pokemonData = await pokemonResponse.json();
+
+    const speciesResponse = await fetch(pokemonData.species.url);
+    const speciesData = await speciesResponse.json();
+
+    const colorName = speciesData.color.name;
+    const colorCode =
+      pokemonColors.find((color) => color.name === colorName)?.code ||
+      "#000000";
+
+    const image =
+      pokemonData.sprites.other["official-artwork"]?.front_default ||
+      pokemonData.sprites.front_default ||
+      "/images/placeholder.webp";
+
+    relatedPokemon.push({
+      id: pokemonData.id,
+      name: pokemonData.name,
+      sprites: {
+        front_default: image,
+      },
+      types: pokemonData.types,
+      stats: pokemonData.stats,
+      generation: speciesData.generation.name,
+      color: colorName,
+      colorCode: colorCode,
+      evolutions: [],
+      weight: pokemonData.weight,
+      height: pokemonData.height,
+    });
+
+    if (evolution.evolves_to && evolution.evolves_to.length > 0) {
+      for (const nextEvolution of evolution.evolves_to) {
+        await processEvolution(nextEvolution);
+      }
+    }
+  };
+
+  await processEvolution(chain);
+  return relatedPokemon;
+};
+
+// QUERIES
+
+export async function getPokemons({
+  pageParam = 0,
+  filters = {
+    type: "all",
+    generation: "all",
+    search: "",
+  },
+}: {
+  pageParam?: number;
+  filters?: {
+    type: string;
+    generation: string;
+    search: string;
+  };
+}) {
+  // Increase the limit when filters are applied to ensure we get enough results
+  const baseLimit = 20;
+  const limit =
+    filters.type !== "all" || filters.generation !== "all" || filters.search
+      ? baseLimit * 3 // Fetch more items when filters are active
+      : baseLimit;
+
+  const offset = pageParam * limit;
+
+  // If we have a search term, we need to fetch all Pokémon first
+  if (filters.search) {
+    // Fetch all Pokémon names
+    const allPokemonResponse = await fetch(
+      `https://pokeapi.co/api/v2/pokemon?limit=1000&offset=0`
+    );
+    const allPokemonData = await allPokemonResponse.json();
+
+    // Filter Pokémon by name
+    const searchTerm = filters.search.toLowerCase();
+    const matchingPokemon = allPokemonData.results.filter(
+      (pokemon: { name: string }) =>
+        pokemon.name.toLowerCase().includes(searchTerm)
+    );
+
+    // Create a Set to track processed evolution chains to avoid duplicates
+    const processedEvolutionChains = new Set<string>();
+
+    // Create a Map to track unique Pokémon by ID
+    const uniquePokemonMap = new Map<number, Pokemon>();
+
+    // Process each matching Pokémon to get its evolution chain
+    for (const pokemon of matchingPokemon) {
+      const response = await fetch(pokemon.url);
+      const pokemonData = await response.json();
+
+      const speciesResponse = await fetch(pokemonData.species.url);
+      const speciesData = await speciesResponse.json();
+
+      // Get evolution chain
+      const evolutionResponse = await fetch(speciesData.evolution_chain.url);
+      const evolutionData = await evolutionResponse.json();
+
+      // Check if we've already processed this evolution chain
+      if (processedEvolutionChains.has(evolutionData.chain.species.name)) {
+        continue; // Skip this chain if already processed
+      }
+
+      // Mark this chain as processed
+      processedEvolutionChains.add(evolutionData.chain.species.name);
+
+      // Get all related Pokémon from the evolution chain
+      const relatedPokemon = await getRelatedPokemonFromEvolutionChain(
+        evolutionData.chain
+      );
+
+      // Add each Pokémon to our unique map
+      for (const pokemon of relatedPokemon) {
+        uniquePokemonMap.set(pokemon.id, pokemon);
+      }
+    }
+
+    // Convert the map to an array
+    const allRelatedPokemon = Array.from(uniquePokemonMap.values());
+
+    // Calculate pagination for the filtered results
+    const startIndex = offset;
+    const endIndex = Math.min(startIndex + limit, allRelatedPokemon.length);
+    const paginatedResults = allRelatedPokemon.slice(startIndex, endIndex);
+
+    // Apply type and generation filters
+    let filteredPokemons = paginatedResults;
+
+    if (filters.type !== "all") {
+      filteredPokemons = filteredPokemons.filter((pokemon) =>
+        pokemon.types.some(
+          (type: PokemonType) => type.type.name === filters.type
+        )
+      );
+    }
+
+    if (filters.generation !== "all") {
+      filteredPokemons = filteredPokemons.filter(
+        (pokemon) => pokemon.generation === filters.generation
+      );
+    }
+
+    // Sort by ID
+    filteredPokemons.sort((a, b) => a.id - b.id);
+
+    return {
+      data: filteredPokemons,
+      nextCursor: endIndex < allRelatedPokemon.length ? pageParam + 1 : null,
+      total: allRelatedPokemon.length,
+    };
+  }
+
+  // If no search term, use the regular pagination approach
+  const response = await fetch(
+    `https://pokeapi.co/api/v2/pokemon?limit=${limit}&offset=${offset}`
+  );
+  const data = await response.json();
+
+  const pokemons = await Promise.all(
+    data.results.map(async (pokemon: { name: string; url: string }) => {
+      const response = await fetch(pokemon.url);
+      const pokemonData = await response.json();
+
+      const speciesResponse = await fetch(pokemonData.species.url);
+      const speciesData = await speciesResponse.json();
+
+      const colorName = speciesData.color.name;
+      const colorCode =
+        pokemonColors.find((color) => color.name === colorName)?.code ||
+        "#000000";
+
+      const image =
+        pokemonData.sprites.other["official-artwork"]?.front_default ||
+        pokemonData.sprites.front_default ||
+        "/images/placeholder.webp";
+
+      return {
+        id: pokemonData.id,
+        name: pokemonData.name,
+        sprites: {
+          front_default: image,
+        },
+        types: pokemonData.types,
+        stats: pokemonData.stats,
+        generation: speciesData.generation.name,
+        color: colorName,
+        colorCode: colorCode,
+        evolutions: [],
+        weight: pokemonData.weight,
+        height: pokemonData.height,
+      };
+    })
+  );
+
+  // Apply filters
+  let filteredPokemons = pokemons;
+
+  if (filters.type !== "all") {
+    filteredPokemons = filteredPokemons.filter((pokemon) =>
+      pokemon.types.some((type: PokemonType) => type.type.name === filters.type)
+    );
+  }
+
+  if (filters.generation !== "all") {
+    filteredPokemons = filteredPokemons.filter(
+      (pokemon) => pokemon.generation === filters.generation
+    );
+  }
+
+  // Sort by ID by default
+  filteredPokemons.sort((a, b) => a.id - b.id);
+
+  // If we have no results after filtering, we need to fetch more data
+  const hasMoreData = data.next !== null;
+  const needsMoreData = filteredPokemons.length === 0 && hasMoreData;
+
+  // If we need more data and there's more available, fetch the next page
+  if (needsMoreData) {
+    return getPokemons({
+      pageParam: pageParam + 1,
+      filters,
+    });
+  }
+
+  return {
+    data: filteredPokemons,
+    nextCursor: data.next ? pageParam + 1 : null,
+    total: data.count,
+  };
+}
+
+export async function getPokemonById(id: string): Promise<Pokemon> {
+  const response = await fetch(`https://pokeapi.co/api/v2/pokemon/${id}`);
+  const pokemonData = await response.json();
+
+  const speciesResponse = await fetch(pokemonData.species.url);
+  const speciesData = await speciesResponse.json();
+
+  const evolutions = await getEvolutionChain(pokemonData.species.url);
+
+  const colorName = speciesData.color.name;
+  const colorCode =
+    pokemonColors.find((color) => color.name === colorName)?.code || "#000000";
+
+  return {
+    id: pokemonData.id,
+    name: pokemonData.name,
+    sprites: {
+      front_default:
+        pokemonData.sprites.other["official-artwork"].front_default,
+    },
+    types: pokemonData.types,
+    stats: pokemonData.stats,
+    generation: speciesData.generation.name,
+    color: colorName,
+    colorCode: colorCode,
+    evolutions,
+    weight: pokemonData.weight,
+    height: pokemonData.height,
+  };
 }
 
 async function getEvolutionChain(
@@ -88,609 +371,4 @@ async function getEvolutionChain(
 
   await processEvolution(evolutionData.chain);
   return evolutions;
-}
-
-export interface PokemonResponse {
-  data: Pokemon[];
-  total: number;
-}
-
-export async function getPokemons({
-  generation,
-  type,
-  limit = 20,
-  offset = 0,
-  sort = "id",
-  search,
-}: {
-  generation?: string;
-  type?: string;
-  limit?: number;
-  offset?: number;
-  sort?: string;
-  search?: string;
-}): Promise<PokemonResponse> {
-  try {
-    if (search) {
-      try {
-        const response = await fetch(
-          `https://pokeapi.co/api/v2/pokemon?limit=1302`
-        );
-
-        if (!response.ok) {
-          throw new Error(`Failed to fetch Pokémon list: ${response.status}`);
-        }
-
-        const data: PokemonListResponse = await response.json();
-        const allPokemonNames = data.results.map((p) => p.name);
-
-        const matchingPokemonNames = allPokemonNames.filter((name) =>
-          name.toLowerCase().includes(search.toLowerCase())
-        );
-
-        const evolutionPromises = matchingPokemonNames.map(async (name) => {
-          try {
-            const pokemonResponse = await fetch(
-              `https://pokeapi.co/api/v2/pokemon/${name}`
-            );
-            if (!pokemonResponse.ok) return null;
-            const pokemonData = await pokemonResponse.json();
-
-            const speciesResponse = await fetch(pokemonData.species.url);
-            if (!speciesResponse.ok) return null;
-            const speciesData = await speciesResponse.json();
-
-            const evolutionResponse = await fetch(
-              speciesData.evolution_chain.url
-            );
-            if (!evolutionResponse.ok) return null;
-            const evolutionData = await evolutionResponse.json();
-
-            const evolutionNames = new Set<string>();
-            const processEvolution = (chain: EvolutionChain) => {
-              evolutionNames.add(chain.species.name);
-              chain.evolves_to.forEach(processEvolution);
-            };
-            processEvolution(evolutionData.chain);
-
-            return Array.from(evolutionNames);
-          } catch (error) {
-            console.error(`Error getting evolution chain for ${name}:`, error);
-            return [name];
-          }
-        });
-
-        const evolutionResults = await Promise.all(evolutionPromises);
-        const allRelatedPokemonNames = new Set<string>();
-        evolutionResults.forEach((names) => {
-          if (names) names.forEach((name) => allRelatedPokemonNames.add(name));
-        });
-
-        const filteredPokemonNames = Array.from(allRelatedPokemonNames);
-
-        const total = filteredPokemonNames.length;
-        const paginatedPokemonNames = filteredPokemonNames.slice(
-          offset,
-          offset + limit
-        );
-
-        const pokemonPromises = paginatedPokemonNames.map(async (name) => {
-          try {
-            const pokemonResponse = await fetch(
-              `https://pokeapi.co/api/v2/pokemon/${name}`
-            );
-            if (!pokemonResponse.ok) {
-              console.error(
-                `Failed to fetch Pokémon details for ${name}: ${pokemonResponse.status}`
-              );
-              return null;
-            }
-            const pokemonData = await pokemonResponse.json();
-
-            const speciesResponse = await fetch(pokemonData.species.url);
-            if (!speciesResponse.ok) {
-              console.error(
-                `Failed to fetch species data for ${name}: ${speciesResponse.status}`
-              );
-              return null;
-            }
-            const speciesData = await speciesResponse.json();
-
-            const evolutions = await getEvolutionChain(pokemonData.species.url);
-
-            const colorName = speciesData.color.name;
-            const colorCode =
-              pokemonColors.find((color) => color.name === colorName)?.code ||
-              "#000000";
-
-            return {
-              id: pokemonData.id,
-              name: pokemonData.name,
-              sprites: {
-                front_default:
-                  pokemonData.sprites.other["official-artwork"].front_default,
-              },
-              types: pokemonData.types,
-              stats: pokemonData.stats,
-              generation: speciesData.generation.name,
-              color: colorName,
-              colorCode: colorCode,
-              evolutions,
-            } as Pokemon;
-          } catch (error) {
-            console.error(`Error processing Pokémon ${name}:`, error);
-            return null;
-          }
-        });
-
-        const pokemonResults = await Promise.all(pokemonPromises);
-        const pokemonList = pokemonResults.filter(
-          (pokemon): pokemon is Pokemon => pokemon !== null
-        );
-
-        const sortedPokemonList = [...pokemonList];
-        if (sort === "name-desc") {
-          sortedPokemonList.sort((a, b) => b.name.localeCompare(a.name));
-        } else if (sort === "name-asc") {
-          sortedPokemonList.sort((a, b) => a.name.localeCompare(b.name));
-        } else {
-          sortedPokemonList.sort((a, b) => a.id - b.id);
-        }
-
-        return {
-          data: sortedPokemonList,
-          total,
-        };
-      } catch (error) {
-        console.error("Error in search:", error);
-        return { data: [], total: 0 };
-      }
-    }
-
-    if (generation && type) {
-      try {
-        const typeResponse = await fetch(
-          `https://pokeapi.co/api/v2/type/${type}`
-        );
-        if (!typeResponse.ok) {
-          console.error(`Failed to fetch type data: ${typeResponse.status}`);
-          return getPokemons({ generation, limit, offset });
-        }
-        const typeData = await typeResponse.json();
-        const typePokemonNames = typeData.pokemon.map(
-          (p: { pokemon: { name: string } }) => p.pokemon.name
-        );
-
-        const generationResponse = await fetch(
-          `https://pokeapi.co/api/v2/generation/${generation}`
-        );
-        if (!generationResponse.ok) {
-          console.error(
-            `Failed to fetch generation data: ${generationResponse.status}`
-          );
-          return getPokemons({ type, limit, offset });
-        }
-        const generationData = await generationResponse.json();
-        const generationPokemonNames = generationData.pokemon_species.map(
-          (p: { name: string }) => p.name
-        );
-
-        const filteredPokemonNames = typePokemonNames.filter((name: string) =>
-          generationPokemonNames.includes(name)
-        );
-
-        if (filteredPokemonNames.length === 0) {
-          console.log(
-            `No Pokémon found matching both type ${type} and generation ${generation}`
-          );
-          return { data: [], total: 0 };
-        }
-
-        const total = filteredPokemonNames.length;
-        const paginatedPokemonNames = filteredPokemonNames.slice(
-          offset,
-          offset + limit
-        );
-
-        const pokemonPromises = paginatedPokemonNames.map(
-          async (name: string) => {
-            try {
-              const pokemonResponse = await fetch(
-                `https://pokeapi.co/api/v2/pokemon/${name}`
-              );
-              if (!pokemonResponse.ok) {
-                console.error(
-                  `Failed to fetch Pokémon details for ${name}: ${pokemonResponse.status}`
-                );
-                return null;
-              }
-              const pokemonData = await pokemonResponse.json();
-
-              const speciesResponse = await fetch(pokemonData.species.url);
-              if (!speciesResponse.ok) {
-                console.error(
-                  `Failed to fetch species data for ${name}: ${speciesResponse.status}`
-                );
-                return null;
-              }
-              const speciesData = await speciesResponse.json();
-
-              const evolutions = await getEvolutionChain(
-                pokemonData.species.url
-              );
-
-              const colorName = speciesData.color.name;
-              const colorCode =
-                pokemonColors.find((color) => color.name === colorName)?.code ||
-                "#000000";
-
-              return {
-                id: pokemonData.id,
-                name: pokemonData.name,
-                sprites: {
-                  front_default:
-                    pokemonData.sprites.other["official-artwork"].front_default,
-                },
-                types: pokemonData.types,
-                stats: pokemonData.stats,
-                generation: speciesData.generation.name,
-                color: colorName,
-                colorCode: colorCode,
-                evolutions,
-              } as Pokemon;
-            } catch (error) {
-              console.error(`Error processing Pokémon ${name}:`, error);
-              return null;
-            }
-          }
-        );
-
-        const pokemonResults = await Promise.all(pokemonPromises);
-        const pokemonList = pokemonResults.filter(
-          (pokemon): pokemon is Pokemon => pokemon !== null
-        );
-
-        const sortedPokemonList = [...pokemonList];
-        if (sort === "name-desc") {
-          sortedPokemonList.sort((a, b) => b.name.localeCompare(a.name));
-        } else if (sort === "name-asc") {
-          sortedPokemonList.sort((a, b) => a.name.localeCompare(b.name));
-        } else {
-          sortedPokemonList.sort((a, b) => a.id - b.id);
-        }
-
-        return {
-          data: sortedPokemonList,
-          total,
-        };
-      } catch (error) {
-        console.error("Error in combined filter:", error);
-        return getPokemons({ limit, offset });
-      }
-    } else if (generation) {
-      try {
-        const response = await fetch(
-          `https://pokeapi.co/api/v2/generation/${generation}`
-        );
-
-        if (!response.ok) {
-          console.error(`Failed to fetch generation data: ${response.status}`);
-          return getPokemons({ limit, offset });
-        }
-
-        const data = await response.json();
-        const pokemonNames = data.pokemon_species.map(
-          (p: { name: string }) => p.name
-        );
-        const total = pokemonNames.length;
-
-        const paginatedPokemonNames = pokemonNames.slice(
-          offset,
-          offset + limit
-        );
-
-        const pokemonPromises = paginatedPokemonNames.map(
-          async (name: string) => {
-            try {
-              const pokemonResponse = await fetch(
-                `https://pokeapi.co/api/v2/pokemon/${name}`
-              );
-              if (!pokemonResponse.ok) {
-                console.error(
-                  `Failed to fetch Pokémon details for ${name}: ${pokemonResponse.status}`
-                );
-                return null;
-              }
-              const pokemonData = await pokemonResponse.json();
-
-              const speciesResponse = await fetch(pokemonData.species.url);
-              if (!speciesResponse.ok) {
-                console.error(
-                  `Failed to fetch species data for ${name}: ${speciesResponse.status}`
-                );
-                return null;
-              }
-              const speciesData = await speciesResponse.json();
-
-              const evolutions = await getEvolutionChain(
-                pokemonData.species.url
-              );
-
-              const colorName = speciesData.color.name;
-              const colorCode =
-                pokemonColors.find((color) => color.name === colorName)?.code ||
-                "#000000";
-
-              return {
-                id: pokemonData.id,
-                name: pokemonData.name,
-                sprites: {
-                  front_default:
-                    pokemonData.sprites.other["official-artwork"].front_default,
-                },
-                types: pokemonData.types,
-                stats: pokemonData.stats,
-                generation: speciesData.generation.name,
-                color: colorName,
-                colorCode: colorCode,
-                evolutions,
-              } as Pokemon;
-            } catch (error) {
-              console.error(`Error processing Pokémon ${name}:`, error);
-              return null;
-            }
-          }
-        );
-
-        const pokemonResults = await Promise.all(pokemonPromises);
-        const pokemonList = pokemonResults.filter(
-          (pokemon): pokemon is Pokemon => pokemon !== null
-        );
-
-        const sortedPokemonList = [...pokemonList];
-        if (sort === "name-desc") {
-          sortedPokemonList.sort((a, b) => b.name.localeCompare(a.name));
-        } else if (sort === "name-asc") {
-          sortedPokemonList.sort((a, b) => a.name.localeCompare(b.name));
-        } else {
-          sortedPokemonList.sort((a, b) => a.id - b.id);
-        }
-
-        return {
-          data: sortedPokemonList,
-          total,
-        };
-      } catch (error) {
-        console.error("Error in generation filter:", error);
-        return getPokemons({ limit, offset });
-      }
-    } else if (type) {
-      try {
-        const response = await fetch(`https://pokeapi.co/api/v2/type/${type}`);
-
-        if (!response.ok) {
-          console.error(`Failed to fetch type data: ${response.status}`);
-          return getPokemons({ limit, offset });
-        }
-
-        const data = await response.json();
-        const pokemonNames = data.pokemon.map(
-          (p: { pokemon: { name: string } }) => p.pokemon.name
-        );
-        const total = pokemonNames.length;
-
-        const paginatedPokemonNames = pokemonNames.slice(
-          offset,
-          offset + limit
-        );
-
-        const pokemonPromises = paginatedPokemonNames.map(
-          async (name: string) => {
-            try {
-              const pokemonResponse = await fetch(
-                `https://pokeapi.co/api/v2/pokemon/${name}`
-              );
-              if (!pokemonResponse.ok) {
-                console.error(
-                  `Failed to fetch Pokémon details for ${name}: ${pokemonResponse.status}`
-                );
-                return null;
-              }
-              const pokemonData = await pokemonResponse.json();
-
-              const speciesResponse = await fetch(pokemonData.species.url);
-              if (!speciesResponse.ok) {
-                console.error(
-                  `Failed to fetch species data for ${name}: ${speciesResponse.status}`
-                );
-                return null;
-              }
-              const speciesData = await speciesResponse.json();
-
-              const evolutions = await getEvolutionChain(
-                pokemonData.species.url
-              );
-
-              const colorName = speciesData.color.name;
-              const colorCode =
-                pokemonColors.find((color) => color.name === colorName)?.code ||
-                "#000000";
-
-              return {
-                id: pokemonData.id,
-                name: pokemonData.name,
-                sprites: {
-                  front_default:
-                    pokemonData.sprites.other["official-artwork"]
-                      .front_default ?? pokemonData.sprites.front_default,
-                },
-                types: pokemonData.types,
-                stats: pokemonData.stats,
-                generation: speciesData.generation.name,
-                color: colorName,
-                colorCode: colorCode,
-                evolutions,
-              } as Pokemon;
-            } catch (error) {
-              console.error(`Error processing Pokémon ${name}:`, error);
-              return null;
-            }
-          }
-        );
-
-        const pokemonResults = await Promise.all(pokemonPromises);
-        const pokemonList = pokemonResults.filter(
-          (pokemon): pokemon is Pokemon => pokemon !== null
-        );
-
-        const sortedPokemonList = [...pokemonList];
-        if (sort === "name-desc") {
-          sortedPokemonList.sort((a, b) => b.name.localeCompare(a.name));
-        } else if (sort === "name-asc") {
-          sortedPokemonList.sort((a, b) => a.name.localeCompare(b.name));
-        } else {
-          sortedPokemonList.sort((a, b) => a.id - b.id);
-        }
-
-        return {
-          data: sortedPokemonList,
-          total,
-        };
-      } catch (error) {
-        console.error("Error in type filter:", error);
-        return getPokemons({ limit, offset });
-      }
-    } else {
-      try {
-        const response = await fetch(
-          `https://pokeapi.co/api/v2/pokemon?limit=1302`
-        );
-
-        if (!response.ok) {
-          throw new Error(`Failed to fetch Pokémon list: ${response.status}`);
-        }
-
-        const data: PokemonListResponse = await response.json();
-        const total = data.count;
-
-        const paginatedResults = data.results.slice(offset, offset + limit);
-
-        const pokemonPromises = paginatedResults.map(async (pokemon) => {
-          try {
-            const pokemonResponse = await fetch(pokemon.url);
-
-            if (!pokemonResponse.ok) {
-              console.error(
-                `Failed to fetch Pokémon details for ${pokemon.name}: ${pokemonResponse.status}`
-              );
-              return null;
-            }
-
-            const pokemonData = await pokemonResponse.json();
-
-            const speciesResponse = await fetch(pokemonData.species.url);
-            if (!speciesResponse.ok) {
-              console.error(
-                `Failed to fetch species data for ${pokemon.name}: ${speciesResponse.status}`
-              );
-              return null;
-            }
-            const speciesData = await speciesResponse.json();
-
-            const evolutions = await getEvolutionChain(pokemonData.species.url);
-
-            const colorName = speciesData.color.name;
-            const colorCode =
-              pokemonColors.find((color) => color.name === colorName)?.code ||
-              "#000000";
-
-            return {
-              id: pokemonData.id,
-              name: pokemonData.name,
-              sprites: {
-                front_default:
-                  pokemonData.sprites.other["official-artwork"].front_default,
-              },
-              types: pokemonData.types,
-              stats: pokemonData.stats,
-              generation: speciesData.generation.name,
-              color: colorName,
-              colorCode: colorCode,
-              evolutions,
-            } as Pokemon;
-          } catch (error) {
-            console.error(`Error processing Pokémon ${pokemon.name}:`, error);
-            return null;
-          }
-        });
-
-        const pokemonResults = await Promise.all(pokemonPromises);
-        const pokemonList = pokemonResults.filter(
-          (pokemon): pokemon is Pokemon => pokemon !== null
-        );
-
-        const sortedPokemonList = [...pokemonList];
-        if (sort === "name-desc") {
-          sortedPokemonList.sort((a, b) => b.name.localeCompare(a.name));
-        } else if (sort === "name-asc") {
-          sortedPokemonList.sort((a, b) => a.name.localeCompare(b.name));
-        } else {
-          sortedPokemonList.sort((a, b) => a.id - b.id);
-        }
-
-        return {
-          data: sortedPokemonList,
-          total,
-        };
-      } catch (error) {
-        console.error("Error fetching all Pokémon:", error);
-        return { data: [], total: 0 };
-      }
-    }
-  } catch (error) {
-    console.error("Error fetching Pokémon:", error);
-    return { data: [], total: 0 };
-  }
-}
-
-export async function getPokemonById(id: string): Promise<Pokemon> {
-  const response = await fetch(`https://pokeapi.co/api/v2/pokemon/${id}`);
-  const pokemonData = await response.json();
-
-  const speciesResponse = await fetch(pokemonData.species.url);
-  const speciesData = await speciesResponse.json();
-
-  const evolutions = await getEvolutionChain(pokemonData.species.url);
-
-  const colorName = speciesData.color.name;
-  const colorCode =
-    pokemonColors.find((color) => color.name === colorName)?.code || "#000000";
-
-  return {
-    id: pokemonData.id,
-    name: pokemonData.name,
-    sprites: {
-      front_default:
-        pokemonData.sprites.other["official-artwork"].front_default,
-    },
-    types: pokemonData.types,
-    stats: pokemonData.stats,
-    generation: speciesData.generation.name,
-    color: colorName,
-    colorCode: colorCode,
-    evolutions,
-    weight: pokemonData.weight,
-    height: pokemonData.height,
-  };
-}
-
-export async function getGenerations(): Promise<Generation[]> {
-  const response = await fetch("https://pokeapi.co/api/v2/generation");
-  const data = await response.json();
-  return data.results;
-}
-
-export interface Generation {
-  name: string;
-  url: string;
 }

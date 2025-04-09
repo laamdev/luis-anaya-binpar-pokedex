@@ -5,6 +5,7 @@ import localFont from "next/font/local";
 
 import { Navbar } from "@/components/navigation/navbar";
 import { Footer } from "@/components/navigation/footer";
+import Providers from "@/components/providers";
 
 import { cn } from "@/lib/utils";
 import { SITE } from "@/lib/constants";
@@ -116,9 +117,11 @@ export default function RootLayout({
           "dark font-sans antialiased"
         )}
       >
-        <Navbar />
-        <main className="max-w-5xl mx-auto">{children}</main>
-        <Footer />
+        <Providers>
+          <Navbar />
+          <main className="max-w-5xl mx-auto">{children}</main>
+          <Footer />
+        </Providers>
       </body>
     </html>
   );
