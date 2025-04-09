@@ -2,8 +2,8 @@
 
 import React from "react";
 import Link from "next/link";
-import { GithubIcon, ArrowLeft } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
+import { GithubIcon, ArrowLeft } from "lucide-react";
 
 import { Logo } from "@/components/navigation/logo";
 

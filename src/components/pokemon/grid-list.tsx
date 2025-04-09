@@ -11,20 +11,17 @@ import { EmptyState } from "@/components/pokemon/empty-state";
 
 export const GridList = () => {
   const { ref, inView } = useInView({
-    // Increase the threshold to load more data earlier
     threshold: 0.1,
   });
   const searchParams = useSearchParams();
 
-  // Extract filters from URL search params
   const filters = {
     type: searchParams.get("type") || "all",
     generation: searchParams.get("generation") || "all",
     search: searchParams.get("search") || "",
   };
 
-  // Use infinite query with filters in the query key
-  // This ensures the query is refetched when filters change
+  // Ensures the query is refetched when filters change
   const {
     data,
     isLoading,
@@ -39,7 +36,6 @@ export const GridList = () => {
     getNextPageParam: (lastPage) => lastPage.nextCursor,
   });
 
-  // Load more data when scrolling to the bottom
   useEffect(() => {
     if (inView && hasNextPage && !isFetchingNextPage) {
       fetchNextPage();
@@ -62,7 +58,6 @@ export const GridList = () => {
     );
   }
 
-  // Check if we have any data across all pages
   const hasData = data?.pages.some((page) => page.data.length > 0) ?? false;
 
   if (!hasData) {
@@ -83,7 +78,6 @@ export const GridList = () => {
         )}
       </div>
 
-      {/* Loading indicator at the bottom for infinite scrolling */}
       <div ref={ref} className="flex items-center justify-center p-4 mt-4">
         {isFetchingNextPage && (
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>

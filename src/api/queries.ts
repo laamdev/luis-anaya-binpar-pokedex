@@ -69,7 +69,7 @@ export const getRelatedPokemonFromEvolutionChain = async (
 ): Promise<Pokemon[]> => {
   const relatedPokemon: Pokemon[] = [];
 
-  // Helper function to process evolution chain
+  // Process evolution chain
   const processEvolution = async (evolution: EvolutionChain) => {
     const pokemonResponse = await fetch(
       `https://pokeapi.co/api/v2/pokemon/${evolution.species.name}`
@@ -133,18 +133,15 @@ export async function getPokemons({
     search: string;
   };
 }) {
-  // Increase the limit when filters are applied to ensure we get enough results
   const baseLimit = 20;
   const limit =
     filters.type !== "all" || filters.generation !== "all" || filters.search
-      ? baseLimit * 3 // Fetch more items when filters are active
+      ? baseLimit * 3
       : baseLimit;
 
   const offset = pageParam * limit;
 
-  // If we have a search term, we need to fetch all Pokémon first
   if (filters.search) {
-    // Fetch all Pokémon names
     const allPokemonResponse = await fetch(
       `https://pokeapi.co/api/v2/pokemon?limit=1000&offset=0`
     );
@@ -157,13 +154,13 @@ export async function getPokemons({
         pokemon.name.toLowerCase().includes(searchTerm)
     );
 
-    // Create a Set to track processed evolution chains to avoid duplicates
+    // Avoid evolution chain duplicates
     const processedEvolutionChains = new Set<string>();
 
-    // Create a Map to track unique Pokémon by ID
+    // Track unique Pokémon by ID
     const uniquePokemonMap = new Map<number, Pokemon>();
 
-    // Process each matching Pokémon to get its evolution chain
+    // Get evolution chain for each matching Pokémon
     for (const pokemon of matchingPokemon) {
       const response = await fetch(pokemon.url);
       const pokemonData = await response.json();
@@ -175,29 +172,28 @@ export async function getPokemons({
       const evolutionResponse = await fetch(speciesData.evolution_chain.url);
       const evolutionData = await evolutionResponse.json();
 
-      // Check if we've already processed this evolution chain
+      // Check already processed evolution chain
       if (processedEvolutionChains.has(evolutionData.chain.species.name)) {
-        continue; // Skip this chain if already processed
+        continue; // Skip chain processed
       }
 
-      // Mark this chain as processed
+      // Mark chain as processed
       processedEvolutionChains.add(evolutionData.chain.species.name);
 
-      // Get all related Pokémon from the evolution chain
+      // Get related Pokémon from evolution chain
       const relatedPokemon = await getRelatedPokemonFromEvolutionChain(
         evolutionData.chain
       );
 
-      // Add each Pokémon to our unique map
+      // Add each Pokémon to unique map
       for (const pokemon of relatedPokemon) {
         uniquePokemonMap.set(pokemon.id, pokemon);
       }
     }
 
-    // Convert the map to an array
     const allRelatedPokemon = Array.from(uniquePokemonMap.values());
 
-    // Calculate pagination for the filtered results
+    // Calculate pagination for filtered results
     const startIndex = offset;
     const endIndex = Math.min(startIndex + limit, allRelatedPokemon.length);
     const paginatedResults = allRelatedPokemon.slice(startIndex, endIndex);
@@ -229,7 +225,6 @@ export async function getPokemons({
     };
   }
 
-  // If no search term, use the regular pagination approach
   const response = await fetch(
     `https://pokeapi.co/api/v2/pokemon?limit=${limit}&offset=${offset}`
   );
@@ -271,7 +266,6 @@ export async function getPokemons({
     })
   );
 
-  // Apply filters
   let filteredPokemons = pokemons;
 
   if (filters.type !== "all") {
@@ -286,14 +280,11 @@ export async function getPokemons({
     );
   }
 
-  // Sort by ID by default
   filteredPokemons.sort((a, b) => a.id - b.id);
 
-  // If we have no results after filtering, we need to fetch more data
   const hasMoreData = data.next !== null;
   const needsMoreData = filteredPokemons.length === 0 && hasMoreData;
 
-  // If we need more data and there's more available, fetch the next page
   if (needsMoreData) {
     return getPokemons({
       pageParam: pageParam + 1,
