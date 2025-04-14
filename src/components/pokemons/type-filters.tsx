@@ -28,8 +28,6 @@ export const TypeFilters = () => {
     } else {
       params.set("type", type);
     }
-    // Reset pagination when filter changes to ensure consistent results
-    params.delete("page");
     replace(`${pathname}?${params.toString()}`);
 
     // Invalidate the pokemons query to trigger a refetch with new filters

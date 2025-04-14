@@ -28,7 +28,6 @@ export const GenerationFilters = () => {
     } else {
       params.set("generation", generation);
     }
-    params.delete("page");
     replace(`${pathname}?${params.toString()}`);
 
     // Invalidate the pokemons query to trigger a refetch

@@ -1,5 +1,6 @@
 import "@/app/globals.css";
 
+import { ReactNode } from "react";
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 
@@ -106,7 +107,7 @@ export const metadata: Metadata = {
 export default function RootLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode;
+  children: ReactNode;
 }>) {
   return (
     <html lang="en" className="px-4 xl:px-0">

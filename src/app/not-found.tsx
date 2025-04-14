@@ -11,7 +11,7 @@ export default function Error() {
         <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl">
           Oops! Page not found
         </h1>
-        <p className="text-gray-500 dark:text-gray-400">
+        <p className="text-neutral-500 dark:text-neutral-400">
           We apologize for the inconvenience.
         </p>
         <Link href="/" className={cn(buttonVariants({ variant: "default" }))}>

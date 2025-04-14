@@ -1,13 +1,16 @@
 import { Suspense } from "react";
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 
-import { GenerationFilters } from "@/components/pokemon/generation-filters";
-import { TypeFilters } from "@/components/pokemon/type-filters";
-import { SearchBar } from "@/components/pokemon/search-bar";
-import { GridList } from "@/components/pokemon/grid-list";
+import { GenerationFilters } from "@/components/pokemons/generation-filters";
+import { TypeFilters } from "@/components/pokemons/type-filters";
+import { SearchBar } from "@/components/pokemons/search-bar";
+import { PokemonsGridList } from "@/components/pokemons/pokemons-grid-list";
+import { FilterLabel } from "@/components/shared/filter-label";
+import { FilterSkeleton } from "@/components/shared/filter-skeleton";
+import { GridSkeleton } from "@/components/pokemons/grid-skeleton";
 
-import { getQueryClient } from "@/lib/get-query-client";
-import { getPokemons } from "@/api/queries";
+import { getQueryClient } from "@/lib/api/query-client";
+import { getPokemons } from "@/lib/api/queries";
 
 export default async function Home() {
   const queryClient = getQueryClient();
@@ -34,37 +37,21 @@ export default async function Home() {
 
       <div className="flex items-center lg:flex-row flex-col justify-between gap-12 mt-24 w-full">
         <div className="w-full">
-          <p className="text-xs font-mono uppercase tracking-wider opacity-75">
-            Search by Name
-          </p>
+          <FilterLabel label="Search by Name" />
           <div className="flex gap-4 sm:flex-row flex-col mt-2 w-full">
-            <Suspense
-              fallback={
-                <div className="w-full h-10 bg-muted animate-pulse rounded-md" />
-              }
-            >
+            <Suspense fallback={<FilterSkeleton />}>
               <SearchBar />
             </Suspense>
           </div>
         </div>
 
         <div className="w-full">
-          <p className="text-xs font-mono uppercase tracking-wider opacity-75">
-            Filter by
-          </p>
+          <FilterLabel label="Filter by" />
           <div className="flex gap-4 w-full mt-2">
-            <Suspense
-              fallback={
-                <div className="w-full h-10 bg-muted animate-pulse rounded-md" />
-              }
-            >
+            <Suspense fallback={<FilterSkeleton />}>
               <TypeFilters />
             </Suspense>
-            <Suspense
-              fallback={
-                <div className="w-full h-10 bg-muted animate-pulse rounded-md" />
-              }
-            >
+            <Suspense fallback={<FilterSkeleton />}>
               <GenerationFilters />
             </Suspense>
           </div>
@@ -72,15 +59,9 @@ export default async function Home() {
       </div>
 
       <HydrationBoundary state={dehydrate(queryClient)}>
-        <div className="mt-12">
-          <Suspense
-            fallback={
-              <div className="min-h-[400px] flex items-center justify-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-              </div>
-            }
-          >
-            <GridList />
+        <div className="mt-12 min-h-screen">
+          <Suspense fallback={<GridSkeleton />}>
+            <PokemonsGridList />
           </Suspense>
         </div>
       </HydrationBoundary>

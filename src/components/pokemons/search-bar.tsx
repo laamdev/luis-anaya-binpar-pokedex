@@ -5,9 +5,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { Search } from "lucide-react";
 
-import { useDebounce } from "@/hooks/use-debounce";
-
 import { Input } from "@/components/ui/input";
+
+import { useDebounce } from "@/hooks/use-debounce";
 
 export const SearchBar = () => {
   const router = useRouter();
@@ -20,7 +20,6 @@ export const SearchBar = () => {
     const params = new URLSearchParams(searchParams.toString());
     if (debouncedSearch && debouncedSearch.length >= 3) {
       params.set("search", debouncedSearch);
-      params.set("page", "1");
     } else {
       params.delete("search");
     }

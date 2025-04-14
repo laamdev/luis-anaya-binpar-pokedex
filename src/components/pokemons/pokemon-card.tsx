@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/tooltip";
 
 import { types } from "@/lib/data/types";
-import { Pokemon, PokemonType } from "@/api/queries";
+import { Pokemon, PokemonType } from "@/lib/api/types";
 import { formatGenerationName } from "@/lib/utils";
 
 export const PokemonCard = ({ pokemon }: { pokemon: Pokemon }) => {
